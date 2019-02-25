@@ -4,8 +4,8 @@ const color = 'aqua';
 const lineWidth = 2;
 const boundingBoxColor ='red'
 
-const links = [[0,1],[1,2],[2,6],[3,6],[4,3],[5,4],[10,11],[11,12],[12,8],[13,8],[14,13],[15,14]]
-const angles = [[0,1],[1,2],[2,3],[3,4],[4,5],[6,7],[7,8],[8,9],[9,10],[10,11]]
+const links = [[0,1],[1,2],[2,6],[3,6],[4,3],[5,4],[10,11],[11,12],[12,8],[13,8],[14,13],[15,14],[7,8],[8,9],[7,3],[7,2]]
+const angles = [[0,1],[1,2],[2,3],[3,4],[4,5],[6,7],[7,8],[8,9],[9,10],[10,11],[8,13],[9,13]]
 
 function toTuple({y, x}) {
   return [y, x];
@@ -24,7 +24,7 @@ export function drawPoint(ctx, y, x, r, color) {
 /**
  * Draws a line on a canvas
  */
-export function drawSegment([ay, ax], [by, bx], color, scale, ctx,offset) {
+export function drawSegment([ay, ax], [by, bx], color, scale,offset,ctx) {
   ctx.beginPath();
   ctx.moveTo(ax * scale+offset[0], ay * scale+offset[1]);
   ctx.lineTo(bx * scale+offset[0], by * scale+offset[1]);
@@ -36,13 +36,14 @@ export function drawSegment([ay, ax], [by, bx], color, scale, ctx,offset) {
 /**
  * Draws a pose skeleton
  */
-export function drawSkeleton(keypoints, minConfidence, ctx, scale = 1,offset=[0,0]) {
+export function drawSkeleton(keypoints, ctx, scale = 1,offset=[0,0]) {
   const adjacentKeyPoints = links
 
   adjacentKeyPoints.forEach((link) => {
-    if (keypoints[link[0]].score>minConfidence&&keypoints[link[1]].score>minConfidence){
-        drawSegment(toTuple(keypoints[link[0]].position),
-            toTuple(keypoints[link[1]].position), color, scale, ctx,offset);
+    let joint1 = keypoints[link[0]]
+    let joint2 = keypoints[link[1]]
+    if (joint1.active&&joint2.active){
+        drawSegment(toTuple(joint1.position), toTuple(joint2.position), color, scale,offset,ctx)
     }
   })
 }
@@ -50,16 +51,14 @@ export function drawSkeleton(keypoints, minConfidence, ctx, scale = 1,offset=[0,
 /**
  * Draw pose keypoints on to a canvas
  */
-export function drawKeypoints(keypoints, minConfidence, ctx, scale = 1,offset=[0,0],radius=3,color) {
+export function drawKeypoints(keypoints, ctx, scale = 1,offset=[0,0],radius=3,color) {
   for (let i = 0; i < keypoints.length; i++) {
-    const keypoint = keypoints[i];
+    const keypoint = keypoints[i]
 
-    if (keypoint.score < minConfidence) {
-      continue;
+    if (keypoint.active){
+        const [y, x] = toTuple(keypoint.position)
+        drawPoint(ctx, y * scale+offset[1], x * scale+offset[0], radius, color)
     }
-
-    const [y, x] = toTuple(keypoint.position);
-    drawPoint(ctx, y * scale+offset[1], x * scale+offset[0], radius, color);
   }
 }
 
@@ -72,9 +71,9 @@ export function drawKeypoints(keypoints, minConfidence, ctx, scale = 1,offset=[0
 export function drawBoundingBox(boundingBox, ctx) {
 
   ctx.rect(boundingBox.minX, boundingBox.minY,
-    boundingBox.maxX - boundingBox.minX, boundingBox.maxY - boundingBox.minY);
+    boundingBox.maxX - boundingBox.minX, boundingBox.maxY - boundingBox.minY)
 
-  ctx.strokeStyle = boundingBoxColor;
+  ctx.strokeStyle = boundingBoxColor
   ctx.stroke();
 }
 
@@ -89,4 +88,26 @@ export function renderImageToCanvas(image, size, canvas) {
 
   ctx.drawImage(image, 0, 0);
 }
+
+export function getActiveKeypoints(kepoints,minConfidence,deactivateArray) {
+    for (let i =0;i<deactivateArray.length;i++){
+      kepoints[deactivateArray[i]].active=false
+    }
+
+    kepoints.map((kp)=>{
+      if (kp.score<minConfidence){
+        kp.active = false
+      }
+    })
+
+    return kepoints
+}
+
+export async function compareTwoPose(pose1,pose2){
+
+}
+
+
+
+
 

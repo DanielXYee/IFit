@@ -161,7 +161,6 @@ export class hgNet {
 
         let inputTensor = this.normalize(input,mean)
         if (!flipHorizontal){
-            console.log('flip')
             inputTensor = inputTensor.reverse(1)
         }
         inputTensor = inputTensor.expandDims(0)
@@ -192,7 +191,8 @@ export class hgNet {
                 x:joints[2*i],
                 y:joints[2*i+1]
               },
-              score:scores[i]
+              score:scores[i],
+              active:true,
           }
           keypoints.push(keyPoint)
       }

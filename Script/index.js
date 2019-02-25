@@ -1,21 +1,20 @@
 import * as tf from '@tensorflow/tfjs'
 import Stats from 'stats.js'
 import * as poseModel from './model'
-import * as posenet from '@tensorflow-models/posenet'
-import {drawKeypoints,drawSkeleton} from "./utils";
+import {drawKeypoints, drawSkeleton, getActiveKeypoints} from "./utils"
+import yolo, { downloadModel } from 'tfjs-yolo-tiny'
+import dat from 'dat.gui'
 
 const imageScaleFactor = 0.5;
 const outputStride = 16;
 const flipHorizontal = false;
 
 //camera and cavans size
-const VIDEO_WIDTH = 800
-const VIDEO_HEIGHT = 800
+const VIDEO_WIDTH = 800 //540
+const VIDEO_HEIGHT =800 //600
 
 //DEBUG settings
-const DEBUG = 1
-const DRAW_IMAGE = true
-
+const DEBUG = 0
 //FPS
 const stats = new Stats()
 
@@ -27,37 +26,24 @@ function setupFPS() {
     document.body.appendChild(stats.dom);
 }
 
-/**
- *  Detect Poses
- * @param video Video Element
- * @param net
- */
-function detectPoseInRealTime(video,model) {
+function detectBoxInRealTime(video,model) {
     const canvas = document.getElementById('output');
     const ctx = canvas.getContext('2d');
     const div = document.getElementById('confidence')
-    let minConfidence = 0.15
-    // div.innerText= minConfidence.toString()
-    // setInterval(()=>{
-    //     minConfidence+=0.05
-    //     div.innerText= minConfidence.toString()
-    // },3000)
 
     canvas.width = VIDEO_WIDTH
     canvas.height= VIDEO_HEIGHT
 
-
-    async function poseDetectionFrame() {
+    async function boxDetectionFrame() {
         stats.begin()
 
-        let poses =[]
+        let imageInput = tf.fromPixels(video).expandDims(0)
 
-        let pose = await model.predict(video, imageScaleFactor, flipHorizontal, outputStride)
+        imageInput =tf.image.resizeBilinear(imageInput,[416,416])
 
-        if (DEBUG){
-            console.log(pose)
-        }
-        poses.push(pose)
+        let persons = []
+
+        const boxes = await yolo(imageInput, model)
 
         ctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
         if (DRAW_IMAGE){
@@ -68,16 +54,81 @@ function detectPoseInRealTime(video,model) {
             ctx.restore();
         }
 
+        boxes.forEach((box)=>{
+            const {
+                top, left, bottom, right, classProb, className,
+            } = box;
+            if (className =='person'){
+                ctx.strokeRect(left, top, right-left, bottom-top)
+            }
+        })
 
+        stats.update()
+
+        requestAnimationFrame(boxDetectionFrame)
+    }
+
+    stats.end()
+
+    boxDetectionFrame()
+}
+
+/**
+ *  Detect Poses
+ * @param video Video Element
+ * @param net
+ */
+function detectPoseInRealTime(camera,model) {
+    const canvas = document.getElementById('output');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = VIDEO_WIDTH
+    canvas.height= VIDEO_HEIGHT
+
+    async function poseDetectionFrame() {
+
+        if (guiState.changeCameraDevice){
+            camera =await loadVideo(guiState.changeCameraDevice)
+            guiState.changeCameraDevice = null
+        }
+
+        stats.begin()
+
+        let poses =[]
+
+        let pose = await model.predict(camera, imageScaleFactor, flipHorizontal, outputStride)
+
+        pose.keypoints = getActiveKeypoints(pose.keypoints,guiState.confidence.minPoseConfidence,guiState.deactiveArray)
+
+        console.log(pose.keypoints)
+
+        if (DEBUG){
+            console.log(pose)
+        }
+        poses.push(pose)
+
+        ctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+        if (guiState.output.showVideo){
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.translate(-VIDEO_WIDTH, 0);
+            if (guiState.output.showVideo){
+                ctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
+            }
+            ctx.restore();
+        }
 
         let scale = 1
         let offset = [0,0]
 
         //todo draw boxes , keypoints and skeleton
         poses.forEach(()=>{
-            // drawKeypoints(pose.keypoints,0,ctx,scale,offset,3,'yellow')
-            drawKeypoints(pose.keypoints,minConfidence,ctx,scale,offset,4,'red')
-            drawSkeleton(pose.keypoints,minConfidence,ctx,scale,offset)
+            if (guiState.output.showPoints){
+                drawKeypoints(pose.keypoints,ctx,scale,offset,4,'red')
+            }
+            if (guiState.output.showSkeleton){
+                drawSkeleton(pose.keypoints,ctx,scale,offset)
+            }
         })
 
         stats.update()
@@ -92,61 +143,55 @@ function detectPoseInRealTime(video,model) {
     poseDetectionFrame()
 }
 
-async function setupCamera() {
+async function setupCamera(deviceId) {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error(
             'Browser API navigator.mediaDevices.getUserMedia not available');
     }
 
-    navigator.mediaDevices.enumerateDevices()
-        .then(function(devices) {
-            devices.forEach(function(device) {
-                console.log(device.kind + ": " + device.label +
-                    " id = " + device.deviceId);
-            });
-        })
-        .catch(function(err) {
-            console.log(err.name + ": " + err.message);
-        })
-
-
-    const stream =await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: {
-            deviceId: { exact: 'f66bf10b9de27aa66f916bb1be2883d2d980a832ca1f3cca9c21d23ef01a2770' },
-            width:VIDEO_WIDTH,
-            height:VIDEO_HEIGHT
-        }
-    })
-
-    // console.log(streams)
-
     const video = document.getElementById('video');
     video.width = VIDEO_WIDTH;
     video.height = VIDEO_HEIGHT;
 
-    // const stream = await navigator.mediaDevices.getUserMedia({
-    //     'audio': false,
-    //     'video': {
-    //         facingMode: 'user',
-    //         width: VIDEO_WIDTH,
-    //         height: VIDEO_HEIGHT,
-    //     },
-    // });
-    video.srcObject = stream;
+    if (deviceId!=null){
+        const stream =await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+                deviceId: { exact: deviceId },
+                width:VIDEO_WIDTH,
+                height:VIDEO_HEIGHT
+            }
+        })
+
+        video.srcObject = stream;
+    }
+    else {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            'audio': false,
+            'video': {
+                facingMode: 'user',
+                width: VIDEO_WIDTH,
+                height: VIDEO_HEIGHT,
+            },
+        })
+
+        video.srcObject = stream;
+    }
+
+    // video.src  = 'http://localhost:1234/static/videos/dancecrop.mp4'
 
     return new Promise((resolve) => {
         video.onloadedmetadata = () => {
-            resolve(video);
-        };
-    });
+            resolve(video)
+        }
+    })
 }
 
-async function loadVideo() {
-    const video = await setupCamera();
-    video.play();
+async function loadVideo(deviceId=null) {
+    const video = await setupCamera(deviceId)
+    video.play()
 
-    return video;
+    return video
 }
 
 async function loadImage(){
@@ -187,12 +232,143 @@ async function imageTest() {
 
 }
 
-function cropImage(img) {
-    const Height = parseInt(img.shape[0] * 0.8);
-    const Width = parseInt(img.shape[1] * 0.6);
-    const beginHeight = parseInt((img.shape[0]-Height) / 2)
-    const beginWidth = parseInt((img.shape[1]-Width) / 2)
-    return img.slice([beginHeight, beginWidth, 0], [Height, Width, 3])
+
+async function ODTest(){
+    let model = await downloadModel()
+
+    let video = await loadVideo()
+
+    setupFPS()
+
+    detectBoxInRealTime(video,model)
+}
+
+const guiState = {
+    confidence:{
+        minPoseConfidence:0.15,
+    },
+    joints:{
+        rightAnkle:true,
+        rightKnee:true,
+        rightHip:true,
+        leftHip:true,
+        leftKnee:true,
+        leftAnkle:true,
+        Pelvis:true,
+        thorax:true,
+        upperNeck:true,
+        headTop:true,
+        rightWrist:true,
+        rightElbow:true,
+        rightShoulder:true,
+        leftShoulder:true,
+        leftElbow:true,
+        leftWrist:true
+    },
+    output:{
+        showVideo:true,
+        showSkeleton:true,
+        showPoints:true
+    },
+    camera:{
+        deviceName:null
+    },
+    deactiveArray:[]
+}
+
+const Joints = [
+        'rightAnkle',
+        'rightKnee',
+        'rightHip',
+        'leftHip',
+        'leftKnee',
+        'leftAnkle',
+        'Pelvis',
+        'thorax',
+        'upperNeck',
+        'headTop',
+        'rightWrist',
+        'rightElbow',
+        'rightShoulder',
+        'leftShoulder',
+        'leftElbow',
+        'leftWrist'
+]
+
+Array.prototype.remove = function(val) {
+    var index = this.indexOf(val);
+    if (index > -1) {
+        this.splice(index, 1);
+    }
+}
+
+function setupGui(cameras) {
+
+    const gui = new dat.GUI({width:300})
+
+    let confidence = gui.addFolder('Confidence Controller')
+    confidence.add(guiState.confidence,'minPoseConfidence',0.0,1.0)
+
+    let joints = gui.addFolder('Joint Controller')
+    for (let k in guiState.joints){
+        let c = joints.add(guiState.joints,k.toString())
+        c.onChange(function () {
+            let index = Joints.indexOf(k.toString())
+            if (guiState.joints[k]){
+                guiState.deactiveArray.remove(index)
+            }
+            else {
+                guiState.deactiveArray.push(index)
+            }
+            if(DEBUG) {
+                console.log(guiState.deactiveArray)
+            }
+        })
+    }
+
+    let output = gui.addFolder('Output')
+    output.add(guiState.output, 'showVideo')
+    output.add(guiState.output, 'showSkeleton')
+    output.add(guiState.output, 'showPoints')
+    output.open()
+
+    let cameraNames = []
+    let cameraIds = []
+    cameras.forEach(({name,id})=>{
+        cameraNames.push(name)
+        cameraIds.push(id)
+    })
+
+    let camera = gui.addFolder('Camera')
+    const cameraController =  camera.add(guiState.camera,'deviceName',cameraNames)
+
+    cameraController.onChange(function(name) {
+        guiState.changeCameraDevice = cameraIds[cameraNames.indexOf(name)];
+    });
+
+}
+
+async function getCameras() {
+
+    let cameras =navigator.mediaDevices.enumerateDevices()
+        .then(function(devices) {
+            let cameras = []
+            devices.forEach(function(device) {
+                if (device.kind=='videoinput'){
+                    let camera = {
+                        name:device.label,
+                        id:device.deviceId
+                    }
+                    cameras.push(camera)
+                }
+            })
+            return cameras
+        })
+        .catch(function(err) {
+            console.log(err.name + ": " + err.message);
+        })
+
+    return cameras
 }
 
 async function runDemo(){
@@ -200,16 +376,22 @@ async function runDemo(){
     // //load pose model
     let model =await poseModel.loadModel(false)
 
-    //load video
-    let video = await loadVideo()
-    //
-    setupFPS()
+    let cameras = await getCameras()
 
-    detectPoseInRealTime(video,model)
+    if (cameras.length>0){
+        //load video
+        guiState.camera.deviceName = cameras[0].name
+        let video = await loadVideo(cameras[0].id)
 
+        setupGui(cameras)
+        setupFPS()
+
+        detectPoseInRealTime(video,model)
+    }
 
 
 }
 
 runDemo()
+// ODTest()
 // imageTest()
