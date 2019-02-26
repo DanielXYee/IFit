@@ -388,8 +388,6 @@ async function runDemo(){
 
         detectPoseInRealTime(video,model)
     }
-
-
 }
 
 runDemo()

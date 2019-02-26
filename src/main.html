@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset=utf-8>
+    <title>学习模式</title>
+    <style>
+        body { margin: 0; }
+        canvas { width: 100%; height: 100% }
+    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="keywords" content="My Play Responsive web template, Bootstrap Web Templates, Flat Web Templates, Andriod Compatible web template, Smartphone Compatible web template, free webdesigns for Nokia, Samsung, LG, SonyErricsson, Motorola web design" />
+    <!-- bootstrap -->
+    <link href="css/bootstrap.min.css" rel='stylesheet' type='text/css' media="all" />
+    <!-- //bootstrap -->
+    <link href="css/dashboard.css" rel="stylesheet">
+    <!-- Custom Theme files -->
+    <link href="css/webstyle.css" rel='stylesheet' type='text/css' media="all" />
+    <link rel="stylesheet" type="text/css" href="css/style.css">
+    <!--start-smoth-scrolling-->
+    <link rel="stylesheet" href="assets/css/amazeui.min.css">
+    <script type="text/javascript" src="js/jquery-1.11.1.min.js"></script>
+    <script type="text/javascript" src="js/jquery.SuperSlide2.js"></script>
+</head>
+<body  background="pic/back.jpg" style="background-repeat:no-repeat">
+<nav class="navbar navbar-inverse navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="index.html"><h1><img src="pic/logo.png" alt="" height="70px"  /></h1></a>
+        </div>
+        <div id="navbar" class="navbar-collapse collapse">
+            <div class="top-search">
+                <form class="navbar-form navbar-right">
+                    <input type="text" class="form-control" placeholder="Search...">
+                    <input type="submit" value=" ">
+                </form>
+            </div>
+            <div class="header-top-right">
+                <div class="signin">
+                    <a>网上商城</a>
+                </div>
+                <div class="signin">
+                    <a>运动社区</a>
+                </div>
+                <div class="signin">
+                    <a>个人中心</a>
+                </div>
+            </div>
+        </div>
+        <div class="clearfix"> </div>
+    </div>
+</nav>
+<br>
+<div class="friend">
+    <div class="mr_frbox">
+        <img class="mr_frBtnL prev" src="images/mfrl.gif" id="" />
+        <div class="mr_frUl">
+            <ul id="mr_fu">
+                <li>
+                    <a href="http://www.17sucai.com/">
+                        <img src="images/i.jpg" height="200px"/>
+                    </a>
+                </li>
+                <li>
+                    <a href="http://www.17sucai.com/">
+                        <img src="images/i2.jpg" height="200px"/>
+                    </a>
+                </li>
+                <li><a href="http://www.17sucai.com/">
+                    <img src="images/i3.jpg" height="200px"/>
+                </a>
+                </li>
+                <li><a href="http://www.17sucai.com/">
+                    <img src="images/i4.jpg" height="200px" />
+                </a>
+                </li>
+            </ul>
+        </div>
+        <img class="mr_frBtnR next" src="images/mfrr.gif" />
+    </div>
+</div>
+<br>
+<div class="am-g">
+    <div class="am-u-sm-6">
+        <div class="am-u-sm-11" align="right">
+            <video id="camera" style="display: none"></video>
+            <div style="width: 400px;height: 400px">
+                <canvas id="output"></canvas>
+            </div>
+        </div>
+        <div class="am-u-sm-1">
+            <div style="height: 380px">
+            </div>
+            <button class="am-btn am-btn-success am-round" onclick="changeVal(this);" id="changeit" >start</button>
+        </div>
+    </div>
+    <div class="am-u-sm-6" style="height: 430px">
+        <video id="trainVideo" height="410px" controls="controls"></video>
+    </div>
+</div>
+<script type="js/camera.js"></script>
+<script src="js/main.js"></script>
+<script src="https://unpkg.com/vue/dist/vue.js"></script>
+<!-- import JavaScript -->
+<script src="https://unpkg.com/element-ui/lib/index.js"></script>
+</body>
+</html>

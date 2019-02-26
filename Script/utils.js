@@ -81,7 +81,7 @@ export function drawBoundingBox(boundingBox, ctx) {
  * Draw an image on a canvas
  */
 export function renderImageToCanvas(image, size, canvas) {
-  console.log(size)
+  // console.log(size)
   canvas.width = size[0];
   canvas.height = size[1];
   const ctx = canvas.getContext('2d');
@@ -103,8 +103,94 @@ export function getActiveKeypoints(kepoints,minConfidence,deactivateArray) {
     return kepoints
 }
 
-export async function compareTwoPose(pose1,pose2){
+/**
+ * length
+ */
+function norm([ax,ay]) {
+    return Math.sqrt(ax*ax+ay*ay)
+}
 
+/**
+ * 1D tensor dot
+ */
+function dot([ax,ay],[bx,by]) {
+    return ax*bx + ay * by
+}
+
+/**
+ * get angel's cos
+ * @param tensor1
+ * @param tensor2
+ * @returns {number}
+ */
+function cos(tensor1,tensor2) {
+    return (dot(tensor1,tensor2))*1.0/ (norm(tensor1)* norm(tensor2))
+}
+
+function getTensor([x1,y1],[x2,y2]) {
+  return [x1-x2,y1-y2]
+}
+
+
+function getAngelCos(kps,angelIndex) {
+    //get two links
+    let linkIndexs = angles[angelIndex]
+    // console.log(linkIndexs)
+    let tensors = linkIndexs.map((linkIndex)=>{
+        let link = links[linkIndex]
+        return getTensor(toTuple(kps[link[0]].position),toTuple(kps[link[1]].position))
+    })
+
+    return cos(tensors[0],tensors[1])
+
+}
+
+/**
+ * @param kp1 kepoints from a pose
+ * @param kp2 kepoints from the other pose
+ * @param angelIndex Index of angels
+ */
+function compareTwoAngel(kps1,kps2,angelIndex,threshHold){
+    // console.log(angelIndex)
+    let score1 = getAngelCos(kps1,angelIndex)
+    let score2 = getAngelCos(kps2,angelIndex)
+    return Math.abs(score1-score2)<=threshHold
+}
+
+/**
+ * compare two keypoints use angel
+ * @param kp1
+ * @param kp2
+ * @param threshHold
+ * @returns {Promise<void>}
+ */
+export function compareTwoPose(kps1,kps2,threshHold){
+  let linksStatus = links.map(link=>{
+      let joint1 = kps1[link[0]]
+      let joint2 = kps1[link[1]]
+      if (joint1.active&&joint2.active){
+          return true
+      }
+      else {
+          return false
+      }
+  })
+
+  let passStates = []
+
+  for (let i=0;i<angles.length;i++) {
+      let angel = angles[i]
+      let [link1, link2] = angel
+      if (linksStatus[link1] && linksStatus[link2]) {
+          // console.log(i)
+          let isPass = compareTwoAngel(kps1,kps2,i,threshHold)
+          passStates.push(isPass)
+      }
+  }
+
+  console.log(passStates)
+
+  return passStates
 }
 
 
