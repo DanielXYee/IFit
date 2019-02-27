@@ -1,7 +1,7 @@
 import * as tf from '@tensorflow/tfjs'
 import Stats from 'stats.js'
 import * as poseModel from '../../Script/model'
-import {compareTwoPose, drawKeypoints, drawSkeleton, getActiveKeypoints} from "../../Script/utils"
+import {compareTwoPose, drawKeypoints, drawSkeleton, getActiveKeypoints, getAngelCos} from "../../Script/utils"
 import dat from 'dat.gui'
 import $ from 'jquery'
 
@@ -53,7 +53,7 @@ const stats = new Stats()
 /**
  *  get compared pose from poseFIle
  */
-function getComparedPose(video,poseFile,startIndex,windowSize=6) {
+function getComparedPose(video,poseFile,startIndex,poseNumberPerSecond,skip=3) {
 
     let videoTime = video.currentTime
     let newIndex = startIndex
@@ -66,22 +66,32 @@ function getComparedPose(video,poseFile,startIndex,windowSize=6) {
         }
     }
 
-    return [newIndex,poseFile.slice(newIndex,newIndex+windowSize+1)]
+    let comparePoses = []
+    
+    for (let i = 0;i<2*poseNumberPerSecond&&i+newIndex<poseFile.length;i+=skip){
+        comparePoses.push(poseFile[i+newIndex])
+    }
+
+    return [newIndex,comparePoses]
 }
 
 /**
  * compare webcam pose with comparedPoses
  */
 function comparePoseWithVideo(video,currentPose,comparedPoses,threshHold){
+    let pass = false
     for (let i=0;i<comparedPoses.length;i++){
         let passStates = compareTwoPose(currentPose.keypoints,comparedPoses[i].keypoints,threshHold)
         if (passStates.length>0 && passStates.indexOf(false)==-1){
-            video.play()
+            pass= true
             break
         }
-        else {
-            video.pause()
-        }
+    }
+    if (pass){
+        video.play()
+    }
+    else {
+        video.pause()
     }
 }
 
@@ -102,11 +112,20 @@ function detectPoseInRealTime(video,camera,model,poseFile) {
     const canvas = document.getElementById('output');
     const ctx = canvas.getContext('2d');
 
+    const videoCanvas = document.getElementById('voutput')
+    const vctx = videoCanvas.getContext('2d');
+
+    const test = document.getElementById('test')
+
     canvas.width = VIDEO_WIDTH
     canvas.height= VIDEO_HEIGHT
 
+    videoCanvas.width = VIDEO_WIDTH
+    videoCanvas.height = VIDEO_HEIGHT
+
     let startIndex = 0
-    let windowSize = 3
+    let poseNumberPerSecond  = parseInt(poseFile.length / video.duration)
+
 
     async function poseDetectionFrame() {
 
@@ -122,6 +141,8 @@ function detectPoseInRealTime(video,camera,model,poseFile) {
         //get the pose
         let pose = await model.predict(camera, imageScaleFactor, flipHorizontal, outputStride)
 
+        test.innerText = ((getAngelCos(pose.keypoints,5)).toString()+'    '+(getAngelCos(pose.keypoints,6)).toString())
+
         //filter deactive keypoints
         pose.keypoints = getActiveKeypoints(pose.keypoints,guiState.confidence.minPoseConfidence,guiState.deactiveArray)
 
@@ -133,15 +154,23 @@ function detectPoseInRealTime(video,camera,model,poseFile) {
 
         //draw canvas
         ctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+        vctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
         if (guiState.output.showVideo){
-            ctx.save();
-            ctx.scale(-1, 1);
-            ctx.translate(-VIDEO_WIDTH, 0);
-            if (guiState.output.showVideo){
-                ctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
-            }
-            ctx.restore();
+            ctx.save()
+            ctx.scale(-1, 1)
+            ctx.translate(-VIDEO_WIDTH, 0)
+            ctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
+            ctx.restore()
+
+            vctx.save()
+            vctx.scale(-1, 1)
+            vctx.translate(-VIDEO_WIDTH, 0)
+            vctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
+            vctx.restore()
         }
+
+        let [newIndex , comparePoses] =getComparedPose(video,poseFile,startIndex,poseNumberPerSecond)
+        console.log(newIndex,comparePoses)
 
         let scale = 1
         let offset = [0,0]
@@ -149,12 +178,19 @@ function detectPoseInRealTime(video,camera,model,poseFile) {
         //get compared poss
         poses.forEach((pose)=>{
             if (videoConfig.videoState!='ended'){
-                let [newIndex , comparePoses] =getComparedPose(video,poseFile,startIndex,windowSize)
+                let [newIndex , comparePoses] =getComparedPose(video,poseFile,startIndex,poseNumberPerSecond)
                 startIndex = newIndex
                 comparePoseWithVideo(video,pose,comparePoses,guiState.confidence.compareThreshold)
             }
             else {
                 startIndex = 0
+            }
+
+            if (guiState.output.showPoints){
+                drawKeypoints(poseFile[startIndex].keypoints,vctx,scale,offset,4,'red')
+            }
+            if (guiState.output.showSkeleton){
+                drawSkeleton(poseFile[startIndex].keypoints,vctx,scale,offset)
             }
 
             if (guiState.output.showPoints){
@@ -300,7 +336,7 @@ async function loadCamera(deviceId=null) {
 const guiState = {
     confidence:{
         minPoseConfidence:0.15,
-        compareThreshold:0.05
+        compareThreshold:0.15
     },
     joints:{
         rightAnkle:true,
@@ -369,6 +405,8 @@ Array.prototype.remove = function(val) {
 function setupGui(cameras) {
 
     const gui = new dat.GUI({width:300})
+
+    gui.domElement.style = 'position:absolute;top:200px;right:0px';
 
     let confidence = gui.addFolder('Confidence Controller')
     confidence.add(guiState.confidence,'minPoseConfidence',0.0,1.0)

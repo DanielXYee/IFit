@@ -4,8 +4,8 @@ const color = 'aqua';
 const lineWidth = 2;
 const boundingBoxColor ='red'
 
-const links = [[0,1],[1,2],[2,6],[3,6],[4,3],[5,4],[10,11],[11,12],[12,8],[13,8],[14,13],[15,14],[7,8],[8,9],[7,3],[7,2]]
-const angles = [[0,1],[1,2],[2,3],[3,4],[4,5],[6,7],[7,8],[8,9],[9,10],[10,11],[8,13],[9,13]]
+const links = [[0,1],[1,2],[2,6],[3,6],[4,3],[5,4],[10,11], [11,12],[12,8],[13,8],[14,13],[15,14],[7,8],[8,9],[7,2],[7,3]]
+const angles = [[0,1],[1,14],[4,15],[5,4],[6,7],[7,8],[9,10],[10,11]]
 
 function toTuple({y, x}) {
   return [y, x];
@@ -132,7 +132,7 @@ function getTensor([x1,y1],[x2,y2]) {
 }
 
 
-function getAngelCos(kps,angelIndex) {
+export function getAngelCos(kps,angelIndex) {
     //get two links
     let linkIndexs = angles[angelIndex]
     // console.log(linkIndexs)
@@ -164,10 +164,10 @@ function compareTwoAngel(kps1,kps2,angelIndex,threshHold){
  * @param threshHold
  * @returns {Promise<void>}
  */
-export function compareTwoPose(kps1,kps2,threshHold){
+export function compareTwoPose(currentPose,comparePose,threshHold){
   let linksStatus = links.map(link=>{
-      let joint1 = kps1[link[0]]
-      let joint2 = kps1[link[1]]
+      let joint1 = comparePose[link[0]]
+      let joint2 = comparePose[link[1]]
       if (joint1.active&&joint2.active){
           return true
       }
@@ -183,12 +183,10 @@ export function compareTwoPose(kps1,kps2,threshHold){
       let [link1, link2] = angel
       if (linksStatus[link1] && linksStatus[link2]) {
           // console.log(i)
-          let isPass = compareTwoAngel(kps1,kps2,i,threshHold)
+          let isPass = compareTwoAngel(currentPose,comparePose,i,threshHold)
           passStates.push(isPass)
       }
   }
-
-  console.log(passStates)
 
   return passStates
 }

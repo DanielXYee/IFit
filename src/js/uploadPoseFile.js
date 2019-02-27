@@ -96,19 +96,43 @@ function detectPoseInRealTime(video,model) {
 const videoConfig ={
     videoState:'ended',
     videoUrl:'http://localhost:1234/static/videos/dancecrop.mp4',
-    jsonUpdateUrl:'http://localhost:1234/upload'
+    jsonUpdateUrl:'http://localhost:1234/upload',
+    formDataUpdateUrl:'http://localhost:1234/videos/upload?courseId=1&intro=1'
 
 }
 
 /**
- * send poses file to back
+ * send poses file to back use Json
  */
-function sendPoseJsonToBack(poses) {
+function sendPoseJsonToBackUseJson(poses) {
     $.ajax({
         type: 'post',
         contentType: 'application/json',
         url: videoConfig.jsonUpdateUrl,
         data: JSON.stringify(poses)
+    }).done(function (r) {
+        console.log('success!');
+    }).fail(function (jqXHR) {
+        // Not 200:
+        alert('Error:' + jqXHR.status);
+    });
+}
+
+/**
+ * send poses file to back
+ */
+function sendPoseJsonToBackUseFormData(poses) {
+    let formData = new FormData()
+    formData.append('video','1')
+    formData.append('poseFile',poses)
+
+    $.ajax({
+        type: 'post',
+        contentType: false, // 注意这里应设为false
+        processData: false,
+        cache: false,
+        url: videoConfig.formDataUpdateUrl,
+        data: formData
     }).done(function (r) {
         console.log('success!');
     }).fail(function (jqXHR) {
@@ -138,7 +162,8 @@ function setupVideo() {
     video.addEventListener('ended',function () {
         videoConfig.videoState='ended';
         console.log(allPose)
-        sendPoseJsonToBack(allPose);
+        // sendPoseJsonToBackUseJson(allPose)
+        sendPoseJsonToBackUseFormData(allPose)
         allPose = []
         video.pause();
     });
