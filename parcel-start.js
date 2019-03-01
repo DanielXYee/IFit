@@ -18,6 +18,10 @@ app.use(
     })
 )
 
+app.use('/video',
+    proxy({target:'https://www.bilibili.com'})
+)
+
 app.use(bundler.middleware())
 
 app.listen(Number(process.env.PORT || 1234))

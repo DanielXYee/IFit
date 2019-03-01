@@ -3,6 +3,8 @@ import Stats from 'stats.js'
 import * as poseModel from '../../Script/model'
 import {drawKeypoints, drawSkeleton, getActiveKeypoints} from "../../Script/utils"
 import dat from 'dat.gui'
+import $ from 'jquery'
+import {drawPoseNetKeypoints, drawPoseNetSkeleton} from "../../Script/posenetUtil";
 
 const imageScaleFactor = 0.5;
 const outputStride = 16;
@@ -17,37 +19,17 @@ const DEBUG = 0
 //FPS
 const stats = new Stats()
 
-// function changeVal(obj){
-//     var val=document.getElementById("changeit");
-//     var v = document.getElementById('camera');
-//     if(val.innerHTML=="start"){
-//         obj.innerHTML="end";
-//         val.setAttribute("class", "am-btn am-btn-danger am-round");
-//         if(v.src=="")
-//         {
-//             mycamera();
-//             loadvideo();
-//         }
-//         else
-//             v.play();
-//     }else if(val.innerHTML=="end")
-//     {
-//         obj.innerHTML="start";
-//         v.pause();
-//         val.setAttribute("class", "am-btn am-btn-success am-round");
-//     }
-// }
 
-// $(document).ready(function () {
-//     /* 图片滚动效果 */
-//     $(".mr_frbox").slide({
-//         titCell: "",
-//         mainCell: ".mr_frUl ul",
-//         autoPage: true,
-//         effect: "leftLoop",
-//         vis: 4
-//     });
-// });
+$.ready(function () {
+    /* 图片滚动效果 */
+    $(".roll").slide({
+        titCell: "",
+        mainCell: ".mr_frUl ul",
+        autoPage: true,
+        effect: "leftLoop",
+        vis: 4
+    });
+});
 
 /**
  * Sets up a frames per second panel on the top-left of the window
@@ -62,12 +44,19 @@ function setupFPS() {
  * @param camera Video Element
  * @param model
  */
-function detectPoseInRealTime(camera,model) {
+function detectPoseInRealTime(poseFile,video,camera,model,posenet) {
     const canvas = document.getElementById('output');
     const ctx = canvas.getContext('2d');
 
+    const cv = document.getElementById('voutput');
+    const vctx = cv.getContext('2d');
+
     canvas.width = VIDEO_WIDTH
     canvas.height= VIDEO_HEIGHT
+
+    cv.width = VIDEO_WIDTH
+    cv.height= VIDEO_HEIGHT/1.5
+
 
     async function poseDetectionFrame() {
 
@@ -78,40 +67,65 @@ function detectPoseInRealTime(camera,model) {
 
         stats.begin()
 
-        let poses =[]
+        if (!guiState.network.usePoseNet){
+            let poses =[]
+            let pose = await model.predict(camera, imageScaleFactor, flipHorizontal, outputStride)
 
-        let pose = await model.predict(camera, imageScaleFactor, flipHorizontal, outputStride)
+            pose.keypoints = getActiveKeypoints(pose.keypoints,guiState.confidence.minPoseConfidence,guiState.deactiveArray)
 
-        pose.keypoints = getActiveKeypoints(pose.keypoints,guiState.confidence.minPoseConfidence,guiState.deactiveArray)
+            if (DEBUG){
+                console.log(pose)
+            }
+            poses.push(pose)
 
-        if (DEBUG){
-            console.log(pose)
-        }
-        poses.push(pose)
-
-        ctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
-        if (guiState.output.showVideo){
-            ctx.save();
-            ctx.scale(-1, 1);
-            ctx.translate(-VIDEO_WIDTH, 0);
+            ctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+            vctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
             if (guiState.output.showVideo){
-                ctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
+                ctx.save();
+                ctx.scale(-1, 1);
+                ctx.translate(-VIDEO_WIDTH, 0);
+                if (guiState.output.showVideo){
+                    ctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
+                }
+                ctx.restore();
             }
-            ctx.restore();
+            vctx.drawImage(video,0,0,VIDEO_WIDTH,VIDEO_HEIGHT/1.5)
+
+            let scale = 1
+            let offset = [0,0]
+
+            //todo draw boxes , keypoints and skeleton
+            poses.forEach(()=>{
+                if (guiState.output.showPoints){
+                    drawKeypoints(pose.keypoints,ctx,scale,offset,4,'red')
+                }
+                if (guiState.output.showSkeleton){
+                    drawSkeleton(pose.keypoints,ctx,scale,offset)
+                }
+            })
+        }
+        else {
+            let poses =[]
+            let pose = await posenet.predict(camera, imageScaleFactor, !flipHorizontal, outputStride)
+            ctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+            vctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+            poses.push(pose)
+            if (guiState.output.showVideo){
+                ctx.save();
+                ctx.scale(-1, 1);
+                ctx.translate(-VIDEO_WIDTH, 0);
+                if (guiState.output.showVideo){
+                    ctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
+                }
+                ctx.restore();
+            }
+            vctx.drawImage(video,0,0,VIDEO_WIDTH,VIDEO_HEIGHT/1.5)
+            poses.forEach((pose)=> {
+                drawPoseNetKeypoints(pose.keypoints, guiState.confidence.minPoseConfidence, ctx)
+                drawPoseNetSkeleton(pose.keypoints, guiState.confidence.minPoseConfidence, ctx)
+            })
         }
 
-        let scale = 1
-        let offset = [0,0]
-
-        //todo draw boxes , keypoints and skeleton
-        poses.forEach(()=>{
-            if (guiState.output.showPoints){
-                drawKeypoints(pose.keypoints,ctx,scale,offset,4,'red')
-            }
-            if (guiState.output.showSkeleton){
-                drawSkeleton(pose.keypoints,ctx,scale,offset)
-            }
-        })
 
         stats.update()
 
@@ -196,6 +210,12 @@ async function setupCamera(deviceId) {
     })
 }
 
+const videoConfig ={
+    videoState:'ended',
+    videoUrl:'http://localhost:1234/static/videos/comic.mov',
+    playState:false
+}
+
 /**
  * load comic models
  */
@@ -204,7 +224,7 @@ function setupVideo() {
     video.width = VIDEO_WIDTH;
     video.height = VIDEO_WIDTH;
 
-    video.src = 'http://localhost:1234/static/videos/dance.mov'
+    video.src = videoConfig.videoUrl
 
     return video
 
@@ -255,6 +275,9 @@ const guiState = {
     camera:{
         deviceName:null
     },
+    network:{
+      usePoseNet:true
+    },
     deactiveArray:[]
 }
 
@@ -288,9 +311,11 @@ Array.prototype.remove = function(val) {
  * set up gui config
  * @param cameras
  */
-function setupGui(cameras) {
+function setupGui(video,cameras) {
 
     const gui = new dat.GUI({width:300})
+
+    gui.domElement.style = 'position:absolute;top:50px;right:0px';
 
     let confidence = gui.addFolder('Confidence Controller')
     confidence.add(guiState.confidence,'minPoseConfidence',0.0,1.0)
@@ -316,7 +341,6 @@ function setupGui(cameras) {
     output.add(guiState.output, 'showVideo')
     output.add(guiState.output, 'showSkeleton')
     output.add(guiState.output, 'showPoints')
-    output.open()
 
     let cameraNames = []
     let cameraIds = []
@@ -327,11 +351,40 @@ function setupGui(cameras) {
 
     let camera = gui.addFolder('Camera')
     const cameraController =  camera.add(guiState.camera,'deviceName',cameraNames)
+    const videoplayContoller = camera.add(videoConfig,'playState')
+
+
 
     cameraController.onChange(function(name) {
         guiState.changeCameraDevice = cameraIds[cameraNames.indexOf(name)];
     });
 
+    videoplayContoller.onChange(function() {
+        if (videoConfig.playState!=false){
+            video.play()
+        }
+        else{
+            video.pause()
+        }
+
+    });
+
+}
+
+/**
+ * load pose file from backend
+ * @returns {Promise<*>}
+ */
+
+async function loadPoseFile(){
+    const poseUrl = 'http://localhost:1234/static/poses/comic.json'
+    let pose = await $.getJSON(poseUrl,(data)=>{
+        return data
+    })
+
+    console.log(pose)
+
+    return pose
 }
 
 async function runDemo(){
@@ -339,19 +392,26 @@ async function runDemo(){
     // //load pose model
     let model =await poseModel.loadModel(false)
 
+    let posenet =await poseModel.loadModel(true)
+
+    // load comic
     let video = await loadVideo()
+
+    // let poseFile = await loadPoseFile()
+
+    let poseFile =null
 
     let cameras = await getCameras()
 
     if (cameras.length>0){
         //load video
-        guiState.camera.deviceName = cameras[0].name
-        let camera = await loadCamera(cameras[0].id)
+        guiState.camera.deviceName = cameras[1].name
+        let camera = await loadCamera(cameras[1].id)
 
-        setupGui(cameras)
+        setupGui(video,cameras)
         setupFPS()
 
-        detectPoseInRealTime(camera,model)
+        detectPoseInRealTime(poseFile,video,camera,model,posenet)
     }
 }
 

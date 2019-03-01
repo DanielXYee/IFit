@@ -22,8 +22,8 @@
     <script type="text/javascript" src="js/jquery-1.11.1.min.js"></script>
     <script type="text/javascript" src="js/jquery.SuperSlide2.js"></script>
 </head>
-<body  background="pic/back.jpg" style="background-repeat:no-repeat">
-<nav class="navbar navbar-inverse navbar-fixed-top">
+<body  style="background-color: #47434E">
+<nav class="navbar navbar-inverse navbar-fixed-top" style="background-color: black">
     <div class="container-fluid">
         <div class="navbar-header">
             <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
@@ -59,30 +59,32 @@
 <br>
 <div class="friend">
     <div class="mr_frbox">
-        <img class="mr_frBtnL prev" src="images/mfrl.gif" id="" />
-        <div class="mr_frUl">
-            <ul id="mr_fu">
-                <li>
+        <div style="width: 1200px;height: 200px;display: flex">
+            <div style="width: 246px;"></div>
+            <div style="display: flex;width:708px" class="roll">
+                <div>
                     <a href="http://www.17sucai.com/">
-                        <img src="images/i.jpg" height="200px"/>
+                        <img src="images/g1.png" height="200px"/>
                     </a>
-                </li>
-                <li>
+                </div>
+                <div>
                     <a href="http://www.17sucai.com/">
-                        <img src="images/i2.jpg" height="200px"/>
+                        <img src="images/g3.png" height="200px"/>
                     </a>
-                </li>
-                <li><a href="http://www.17sucai.com/">
-                    <img src="images/i3.jpg" height="200px"/>
-                </a>
-                </li>
-                <li><a href="http://www.17sucai.com/">
-                    <img src="images/i4.jpg" height="200px" />
-                </a>
-                </li>
-            </ul>
+                </div>
+                <div>
+                    <a href="http://www.17sucai.com/">
+                    <img src="images/g2.png" height="200px"/>
+                    </a>
+                </div>
+                <div>
+                    <a href="http://www.17sucai.com/">
+                    <img src="images/g4.png" height="200px" />
+                    </a>
+                </div>
+            </div>
+            <div style="width: 246px;"></div>
         </div>
-        <img class="mr_frBtnR next" src="images/mfrr.gif" />
     </div>
 </div>
 <br>
@@ -90,18 +92,17 @@
     <div class="am-u-sm-6">
         <div class="am-u-sm-11" align="right">
             <video id="camera" style="display: none"></video>
-            <div style="width: 400px;height: 400px">
-                <canvas id="output"></canvas>
-            </div>
+            <canvas style="width: 550px;width: 550px;" id="output"></canvas>
         </div>
         <div class="am-u-sm-1">
             <div style="height: 380px">
             </div>
-            <button class="am-btn am-btn-success am-round" onclick="changeVal(this);" id="changeit" >start</button>
+            <!--<button class="am-btn am-btn-success am-round" onclick="changeVal(this);" id="changeit" >start</button>-->
         </div>
     </div>
-    <div class="am-u-sm-6" style="height: 430px">
-        <video id="trainVideo" height="410px" controls="controls"></video>
+    <div class="am-u-sm-6">
+        <video id="trainVideo" height="410px" controls="controls" style="display:none"></video>
+        <canvas id="voutput"></canvas>
     </div>
 </div>
 <script type="js/camera.js"></script>

@@ -95,7 +95,8 @@ function detectPoseInRealTime(video,model) {
 
 const videoConfig ={
     videoState:'ended',
-    videoUrl:'http://localhost:1234/static/videos/dancecrop.mp4',
+    // videoUrl:'http://localhost:1234/static/videos/down.mp4',
+    videoUrl:'http://localhost:1234/static/videos/jianshencrop.mp4',
     jsonUpdateUrl:'http://localhost:1234/upload',
     formDataUpdateUrl:'http://localhost:1234/videos/upload?courseId=1&intro=1'
 
@@ -162,8 +163,8 @@ function setupVideo() {
     video.addEventListener('ended',function () {
         videoConfig.videoState='ended';
         console.log(allPose)
-        // sendPoseJsonToBackUseJson(allPose)
-        sendPoseJsonToBackUseFormData(allPose)
+        sendPoseJsonToBackUseJson(allPose)
+        // sendPoseJsonToBackUseFormData(allPose)
         allPose = []
         video.pause();
     });

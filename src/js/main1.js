@@ -4,6 +4,7 @@ import * as poseModel from '../../Script/model'
 import {compareTwoPose, drawKeypoints, drawSkeleton, getActiveKeypoints, getAngelCos} from "../../Script/utils"
 import dat from 'dat.gui'
 import $ from 'jquery'
+import {drawPoseNetKeypoints, drawPoseNetSkeleton} from "../../Script/posenetUtil";
 
 const imageScaleFactor = 0.5;
 const outputStride = 16;
@@ -17,38 +18,6 @@ const VIDEO_HEIGHT = 400 //600
 const DEBUG = 0
 //FPS
 const stats = new Stats()
-
-// function changeVal(obj){
-//     var val=document.getElementById("changeit");
-//     var v = document.getElementById('record');
-//     if(val.innerHTML=="start"){
-//         obj.innerHTML="end";
-//         val.setAttribute("class", "am-btn am-btn-danger am-round");
-//         if(v.src=="")
-//         {
-//             mycamera();
-//             loadvideo();
-//         }
-//         else
-//             v.play();
-//     }else if(val.innerHTML=="end")
-//     {
-//         obj.innerHTML="start";
-//         v.pause();
-//         val.setAttribute("class", "am-btn am-btn-success am-round");
-//     }
-// }
-//
-// $(document).ready(function () {
-//     /* 图片滚动效果 */
-//     $(".mr_frbox").slide({
-//         titCell: "",
-//         mainCell: ".mr_frUl ul",
-//         autoPage: true,
-//         effect: "leftLoop",
-//         vis: 4
-//     });
-// });
 
 /**
  *  get compared pose from poseFIle
@@ -108,16 +77,14 @@ function setupFPS() {
  * @param camera Video Element
  * @param model
  */
-function detectPoseInRealTime(video,camera,model,poseFile) {
+function detectPoseInRealTime(video,camera,model,poseFile,posenet) {
     const canvas = document.getElementById('output');
     const ctx = canvas.getContext('2d');
 
     const videoCanvas = document.getElementById('voutput')
     const vctx = videoCanvas.getContext('2d');
 
-    const test = document.getElementById('test')
-
-    canvas.width = VIDEO_WIDTH
+    canvas  .width = VIDEO_WIDTH
     canvas.height= VIDEO_HEIGHT
 
     videoCanvas.width = VIDEO_WIDTH
@@ -136,73 +103,94 @@ function detectPoseInRealTime(video,camera,model,poseFile) {
 
         stats.begin()
 
-        let poses =[]
-
         //get the pose
-        let pose = await model.predict(camera, imageScaleFactor, flipHorizontal, outputStride)
+        if (!guiState.network.usePoseNet){
+            let poses =[]
+            let pose = await model.predict(camera, imageScaleFactor, flipHorizontal, outputStride)
+            //filter deactive keypoints
+            pose.keypoints = getActiveKeypoints(pose.keypoints,guiState.confidence.minPoseConfidence,guiState.deactiveArray)
+            //draw canvas
+            ctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+            vctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+            poses.push(pose)
+            if (guiState.output.showVideo){
+                ctx.save()
+                ctx.scale(-1, 1)
+                ctx.translate(-VIDEO_WIDTH, 0)
+                ctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
+                ctx.restore()
 
-        test.innerText = ((getAngelCos(pose.keypoints,5)).toString()+'    '+(getAngelCos(pose.keypoints,6)).toString())
-
-        //filter deactive keypoints
-        pose.keypoints = getActiveKeypoints(pose.keypoints,guiState.confidence.minPoseConfidence,guiState.deactiveArray)
-
-        if (DEBUG){
-            console.log(pose)
-        }
-
-        poses.push(pose)
-
-        //draw canvas
-        ctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
-        vctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
-        if (guiState.output.showVideo){
-            ctx.save()
-            ctx.scale(-1, 1)
-            ctx.translate(-VIDEO_WIDTH, 0)
-            ctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
-            ctx.restore()
-
-            vctx.save()
-            vctx.scale(-1, 1)
-            vctx.translate(-VIDEO_WIDTH, 0)
-            vctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
-            vctx.restore()
-        }
-
-        let [newIndex , comparePoses] =getComparedPose(video,poseFile,startIndex,poseNumberPerSecond)
-        console.log(newIndex,comparePoses)
-
-        let scale = 1
-        let offset = [0,0]
-
-        //get compared poss
-        poses.forEach((pose)=>{
-            if (videoConfig.videoState!='ended'){
-                let [newIndex , comparePoses] =getComparedPose(video,poseFile,startIndex,poseNumberPerSecond)
-                startIndex = newIndex
-                comparePoseWithVideo(video,pose,comparePoses,guiState.confidence.compareThreshold)
-            }
-            else {
-                startIndex = 0
+                vctx.save()
+                // vctx.scale(-1, 1)
+                // vctx.translate(-VIDEO_WIDTH, 0)
+                vctx.drawImage(video,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
+                vctx.restore()
             }
 
+            let [newIndex , comparePoses] =getComparedPose(video,poseFile,startIndex,poseNumberPerSecond)
+            console.log(newIndex,comparePoses)
+
+            let scale = 1
+            let offset = [0,0]
+
+            //get compared poss
+            poses.forEach((pose)=>{
+                if (videoConfig.videoState!='ended'){
+                    let [newIndex , comparePoses] =getComparedPose(video,poseFile,startIndex,poseNumberPerSecond)
+                    startIndex = newIndex
+                    comparePoseWithVideo(video,pose,comparePoses,guiState.confidence.compareThreshold)
+                }
+                else {
+                    startIndex = 0
+                }
+
+                if (guiState.output.showPoints){
+                    drawKeypoints(poseFile[startIndex].keypoints,vctx,scale,offset,4,'red')
+                }
+                if (guiState.output.showSkeleton){
+                    drawSkeleton(poseFile[startIndex].keypoints,vctx,scale,offset)
+                }
+
+                if (guiState.output.showPoints){
+                    drawKeypoints(pose.keypoints,ctx,scale,offset,4,'red')
+                }
+                if (guiState.output.showSkeleton){
+                    drawSkeleton(pose.keypoints,ctx,scale,offset)
+                }
+            })
+        }
+        else {
+            let poses =[]
+            let pose = await posenet.predict(camera, imageScaleFactor, !flipHorizontal, outputStride)
+            let [newIndex , comparePoses] =getComparedPose(video,poseFile,startIndex,poseNumberPerSecond)
+            startIndex = newIndex
             if (guiState.output.showPoints){
-                drawKeypoints(poseFile[startIndex].keypoints,vctx,scale,offset,4,'red')
+                drawKeypoints(poseFile[startIndex].keypoints,vctx,1,[0,0],4,'red')
             }
             if (guiState.output.showSkeleton){
-                drawSkeleton(poseFile[startIndex].keypoints,vctx,scale,offset)
+                drawSkeleton(poseFile[startIndex].keypoints,vctx,1,[0,0])
             }
+            ctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+            vctx.clearRect(0, 0, VIDEO_WIDTH, VIDEO_HEIGHT)
+            poses.push(pose)
+            if (guiState.output.showVideo){
+                ctx.save()
+                ctx.scale(-1, 1)
+                ctx.translate(-VIDEO_WIDTH, 0)
+                ctx.drawImage(camera,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
+                ctx.restore()
 
-            if (guiState.output.showPoints){
-                drawKeypoints(pose.keypoints,ctx,scale,offset,4,'red')
+                vctx.save()
+                // vctx.scale(-1, 1)
+                // vctx.translate(-VIDEO_WIDTH, 0)
+                vctx.drawImage(video,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
+                vctx.restore()
             }
-            if (guiState.output.showSkeleton){
-                drawSkeleton(pose.keypoints,ctx,scale,offset)
-            }
-        })
-
-
-
+            poses.forEach((pose)=> {
+                drawPoseNetKeypoints(pose.keypoints, guiState.confidence.minPoseConfidence, ctx)
+                drawPoseNetSkeleton(pose.keypoints, guiState.confidence.minPoseConfidence, ctx)
+            })
+        }
         stats.update()
 
         requestAnimationFrame(poseDetectionFrame)
@@ -291,8 +279,8 @@ async function setupCamera(deviceId) {
  */
 function setupVideo() {
     const video = document.getElementById('trainVideo');
-    video.width = VIDEO_WIDTH;
-    video.height = VIDEO_WIDTH;
+    video.width = VIDEO_WIDTH/5;
+    video.height = VIDEO_WIDTH/5;
 
     video.src = videoConfig.videoUrl
 
@@ -336,7 +324,7 @@ async function loadCamera(deviceId=null) {
 const guiState = {
     confidence:{
         minPoseConfidence:0.15,
-        compareThreshold:0.15
+        compareThreshold:0.25
     },
     joints:{
         rightAnkle:true,
@@ -364,12 +352,15 @@ const guiState = {
     camera:{
         deviceName:null
     },
+    network:{
+        usePoseNet:true
+    },
     deactiveArray:[]
 }
 
 const videoConfig ={
     videoState:'ended',
-    videoUrl:'http://localhost:1234/static/videos/dancecrop.mp4'
+    videoUrl:'http://localhost:1234/static/videos/jianshencrop.mp4'
 }
 
 const Joints = [
@@ -433,7 +424,6 @@ function setupGui(cameras) {
     output.add(guiState.output, 'showVideo')
     output.add(guiState.output, 'showSkeleton')
     output.add(guiState.output, 'showPoints')
-    output.open()
 
     let cameraNames = []
     let cameraIds = []
@@ -442,8 +432,14 @@ function setupGui(cameras) {
         cameraIds.push(id)
     })
 
+    let network = gui.addFolder('Net')
+    network.add(guiState.network,'usePoseNet')
+    network.open()
+
     let camera = gui.addFolder('Camera')
     const cameraController =  camera.add(guiState.camera,'deviceName',cameraNames)
+
+
 
     cameraController.onChange(function(name) {
         guiState.changeCameraDevice = cameraIds[cameraNames.indexOf(name)];
@@ -472,6 +468,8 @@ async function runDemo(){
     // //load pose model
     let model =await poseModel.loadModel(false)
 
+    let posenet =await poseModel.loadModel(true)
+
     let video = await loadVideo()
 
     let poseFile = await loadPoseFile()
@@ -486,7 +484,7 @@ async function runDemo(){
         setupGui(cameras)
         setupFPS()
 
-        detectPoseInRealTime(video,camera,model,poseFile)
+        detectPoseInRealTime(video,camera,model,poseFile,posenet)
     }
 }
 

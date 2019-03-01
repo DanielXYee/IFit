@@ -4,14 +4,15 @@ import * as poseModel from './model'
 import {drawKeypoints, drawSkeleton, getActiveKeypoints} from "./utils"
 import yolo, { downloadModel } from 'tfjs-yolo-tiny'
 import dat from 'dat.gui'
+import {drawPoseNetSkeleton} from "./posenetUtil";
 
 const imageScaleFactor = 0.5;
 const outputStride = 16;
 const flipHorizontal = false;
 
 //camera and cavans size
-const VIDEO_WIDTH = 800 //540
-const VIDEO_HEIGHT =800 //600
+const VIDEO_WIDTH = 600 //540
+const VIDEO_HEIGHT =600 //600
 
 //DEBUG settings
 const DEBUG = 0
@@ -221,13 +222,13 @@ async function imageTest() {
     let offset = [0,0]
 
     ctx.drawImage(image,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
-    drawKeypoints(pose1.keypoints,0,ctx,scale,offset)
-    drawSkeleton(pose1.keypoints,0,ctx,scale,offset)
+    drawKeypoints(pose1.keypoints,ctx,scale,offset,3,'aqua')
+    // drawSkeleton(pose1.keypoints,0,ctx,scale,offset)
 
     ctx.translate(VIDEO_WIDTH,0)
     ctx.drawImage(image,0,0,VIDEO_WIDTH,VIDEO_HEIGHT)
-    drawKeypoints(pose2.keypoints,0,ctx,scale,offset)
-    drawSkeleton(pose2.keypoints,0,ctx,scale,offset)
+    drawPoseNetKeypoints(pose2.keypoints,0,ctx)
+    // drawSkeleton(pose2.keypoints,0,ctx,scale,offset)
 
 
 }
@@ -390,6 +391,6 @@ async function runDemo(){
     }
 }
 
-runDemo()
+// runDemo()
 // ODTest()
-// imageTest()
+imageTest()
