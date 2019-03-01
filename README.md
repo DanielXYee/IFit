@@ -51,34 +51,20 @@ npm start
 
 # Start
 
-## 1
+## 1 打开浏览器[localhost:1234](https://localhost:1234)
 
-打开浏览器[localhost:1234](https://localhost:1234)
+## 2 点击 main
 
-## 2
+## 3 播放视频
 
-点击 main
-
-## 3 
-
-播放视频
-
-## 4 
-
-跟着视频做动作
+## 4 跟着视频做动作
 
 
-#Upload
+# Upload
 
-## 1
+## 1 打开浏览器[localhost:1234](https://localhost:1234)
 
-打开浏览器[localhost:1234](https://localhost:1234)
+## 2 点击 upload
 
-## 2
-
-点击 upload
-
-## 3
-
-等待视频播放完成
+## 3 等待视频播放完成
 
