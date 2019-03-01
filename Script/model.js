@@ -1,6 +1,6 @@
 import * as tf from '@tensorflow/tfjs'
 import * as posenet from '@tensorflow-models/posenet'
-import * as hgnet from './hgNet'
+import * as ifitNet from './IFitNet'
 
 // model initialize prarms
 const imageScaleFactor = 0.5;
@@ -13,7 +13,7 @@ export async function loadModel(tiny=true){
        return new Model(net)
     }
     else {
-       const net = await hgnet.load()
+       const net = await ifitNet.load()
        return new Model(net)
     }
 }

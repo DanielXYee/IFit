@@ -353,7 +353,7 @@ const guiState = {
         deviceName:null
     },
     network:{
-        usePoseNet:true
+        usePoseNet:false
     },
     deactiveArray:[]
 }
